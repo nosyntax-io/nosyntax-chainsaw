@@ -6,7 +6,7 @@ on:
       job-id:
         description: "Job ID"
         required: true
-      build-id:
+      build-info:
         description: "Build Info"
         required: true
       project-id:
@@ -24,8 +24,9 @@ jobs:
 
     env:
       JOB_ID: ${{ inputs['job-id'] }}
-      BUILD_ID: ${{ inputs['build-id'] }}
+      BUILD_INFO: ${{ inputs['build-info'] }}
       PROJECT_ID: ${{ inputs['project-id'] }}
+      BUILD_ID: ${{ fromJson(inputs['build-info']).id }}
       AWS_REGION: us-east-1
 
     steps:
@@ -55,11 +56,11 @@ jobs:
 
       - name: Upload to S3
         run: |
-          aws s3 cp app-release.apk s3://${{ secrets.AWS_BUCKET }}/projects/${{ github.event.inputs.project-id }}/artifacts/app-release.apk
+          aws s3 cp app-release.apk s3://${{ secrets.AWS_BUCKET }}/projects/${{ env.PROJECT_ID }}/artifacts/app-release.apk
 
       - name: Update Build Status
         run: |
-          response=$(curl -s -X PATCH "https://52163969920f.ngrok-free.app/api/projects/${{ github.event.inputs.project-id }}/builds/${{ github.event.inputs.build-id }}" \
+          response=$(curl -s -X PATCH "https://52163969920f.ngrok-free.app/api/projects/${{ env.PROJECT_ID }}/builds/${{ env.BUILD_ID }}" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -H "Authorization: Bearer 1|AP1tvWXjdR5qJ7akGq69L1RvCUmhHIxmLZ0hBMXVa7fabaed" \
             -d "run_id=${{ github.run_id }}&status=completed")
