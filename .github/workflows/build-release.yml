@@ -38,6 +38,7 @@ jobs:
         with:
           distribution: "zulu"
           java-version: "17"
+          cache: "gradle"
 
       - name: Set Up Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -63,4 +64,4 @@ jobs:
           response=$(curl -s -X PATCH "https://52163969920f.ngrok-free.app/api/projects/${{ env.PROJECT_ID }}/builds/${{ env.BUILD_ID }}" \
             -H "Content-Type: application/x-www-form-urlencoded" \
             -H "Authorization: Bearer 1|AP1tvWXjdR5qJ7akGq69L1RvCUmhHIxmLZ0hBMXVa7fabaed" \
-            -d "run_id=${{ github.run_id }}&status=completed")
+            -d "run_id=${{ github.run_id }}&status=success")
