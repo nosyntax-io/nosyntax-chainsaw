@@ -1,0 +1,55 @@
+name: Build Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      job-id:
+        description: "Job ID"
+        required: true
+      build-id:
+        description: "Build Info"
+        required: true
+      project-id:
+        description: "Project ID"
+        required: true
+
+jobs:
+  build:
+    name: Build Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set Up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: wrapper
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: GitHub_to_AWS_OIDC
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Generate Release Artifacts
+        run: ./gradlew assembleRelease
+
+      - name: Upload to S3
+        run: |
+          aws s3 cp app/build/outputs/apk/release/app-release.apk s3://${{ secrets.AWS_BUCKET }}/projects/${{ github.event.inputs.project-id }}/artifacts/app-release.apk
+
+      - name: Update Build Status
+        run: |
+          response=$(curl -s -X PATCH "https://52163969920f.ngrok-free.app/api/projects/${{ github.event.inputs.project-id }}/builds/${{ github.event.inputs.build-id }}" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -H "Authorization: Bearer 1|AP1tvWXjdR5qJ7akGq69L1RvCUmhHIxmLZ0hBMXVa7fabaed" \
+            -d "run_id=${{ github.run_id }}&status=completed")

@@ -1,0 +1,87 @@
+name: Signing Setup
+
+on:
+  workflow_dispatch:
+    inputs:
+      project-id:
+        description: 'Project ID'
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  setup:
+    name: Setup Signing
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Environment Variables
+        run: |
+          PROJECT_ID=$(jq -r '.inputs["project-id"]' $GITHUB_EVENT_PATH)
+          echo ::add-mask::$PROJECT_ID
+          echo PROJECT_ID=$PROJECT_ID >> $GITHUB_ENV
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4.1.0
+        with:
+          role-to-assume: ${{ secrets.AWS_ARN }}
+          role-session-name: GitHub_to_AWS_OIDC
+          aws-region: eu-north-1
+
+      - name: Generate Keystore
+        run: |
+          PASSWORD=$(openssl rand -base64 24 | tr -dc 'A-Za-z0-9')
+          echo "::add-mask::$PASSWORD"
+
+          keytool -genkey -v \
+            -keystore signing.keystore \
+            -alias $PROJECT_ID \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -storepass $PASSWORD \
+            -keypass $PASSWORD \
+            -dname "O=$PROJECT_ID"
+
+          base64Keystore=$(base64 -w 0 signing.keystore)
+          echo "::add-mask::$base64Keystore"
+
+          echo "STORE_FILE=$base64Keystore" >> $GITHUB_ENV
+          echo "STORE_PASSWORD=$PASSWORD" >> $GITHUB_ENV
+          echo "KEY_ALIAS=$PROJECT_ID" >> $GITHUB_ENV
+          echo "KEY_PASSWORD=$PASSWORD" >> $GITHUB_ENV
+
+      - name: Extract Certificate Fingerprints
+        run: |
+          storeOutput=$(keytool -list -v -keystore signing.keystore -alias $KEY_ALIAS -storepass $STORE_PASSWORD)
+
+          for type in SHA1 SHA256; do
+            fingerprint=$(echo "$storeOutput" | awk -v type="$type" '/'"$type"':/ {print $2}')
+            echo "::add-mask::$fingerprint"
+            echo "${type}_FINGERPRINT=$fingerprint" >> $GITHUB_ENV
+          done
+
+      - name: Upload Keystore to S3
+        run: |
+          aws s3 cp signing.keystore s3://${{ secrets.AWS_BUCKET }}/projects/${{ env.PROJECT_ID }}/keystores/signing.keystore
+
+      - name: Update Signing Settings
+        run: |
+          response=$(curl -s -X POST "https://d489da048163.ngrok-free.app/api/projects/${{ env.PROJECT_ID }}/signing" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -H "Authorization: Bearer 1|GM8Cs8ftkyTSjAmxuTZRhc5UqXEYpbPoCMpPecxC9b7dc92d" \
+            -d "store_file=signing.keystore" \
+            -d "store_password=${{ env.STORE_PASSWORD }}" \
+            -d "key_alias=${{ env.KEY_ALIAS }}" \
+            -d "key_password=${{ env.KEY_PASSWORD }}")
