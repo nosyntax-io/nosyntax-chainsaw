@@ -66,6 +66,7 @@ jobs:
 
           response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X PATCH "https://52163969920f.ngrok-free.app/api/projects/${{ env.PROJECT_ID }}/builds/${{ env.BUILD_ID }}" \
             -H "Content-Type: application/x-www-form-urlencoded" \
+            -H "Accept: application/json" \
             -H "Authorization: Bearer 1|AP1tvWXjdR5qJ7akGq69L1RvCUmhHIxmLZ0hBMXVa7fabaed" \
             -d "run_id=${{ github.run_id }}&status=success")
 
