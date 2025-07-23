@@ -35,8 +35,8 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
-          java-version: '17'
+          distribution: "zulu"
+          java-version: "17"
 
       - name: Set Up Gradle
         uses: gradle/actions/setup-gradle@v3
@@ -50,12 +50,12 @@ jobs:
           role-session-name: GitHub_to_AWS_OIDC
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Generate Release Artifacts
-        run: ./gradlew assembleRelease
+      - name: Generate Dummy APK
+        run: touch app-release.apk
 
       - name: Upload to S3
         run: |
-          aws s3 cp app/build/outputs/apk/release/app-release.apk s3://${{ secrets.AWS_BUCKET }}/projects/${{ github.event.inputs.project-id }}/artifacts/app-release.apk
+          aws s3 cp app-release.apk s3://${{ secrets.AWS_BUCKET }}/projects/${{ github.event.inputs.project-id }}/artifacts/app-release.apk
 
       - name: Update Build Status
         run: |
